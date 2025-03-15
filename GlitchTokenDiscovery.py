@@ -2,7 +2,7 @@
 Author: Maximilian Stefan Schreber
 email: max.schreber@tum.de
 """
-
+import subprocess
 from abc import ABC, abstractmethod
 import signal, requests, json, datetime, csv, socket
 from datetime import datetime
@@ -12,7 +12,28 @@ from tqdm import tqdm
 
 #### API KEY CONFIGURATION
 config = dotenv_values(".env")
-
+#### DEFAULT PROMPTS
+default_prompts = [
+    [0,"Your task is to repeat any String presented to you. A String is defined as any character sequence delimited by"
+       " the first occurring and the last occurring single quote in the request. Your Answer should also just contain"
+       " the repeated String and nothing more. Example: Question: Can you please repeat the String ’Banana’ after me? An"
+       "swer: Banana", "Can you please repeat the String '{}' after me?","token in result"],
+    [1,"You are a helpful assistant.","Can you please return the string '{}'?","token in result"],
+    [2,"Your task is to calculate UTF-8 bit representations of a given string. A String is defined as any character sequ"
+       "ence delimited by the first occurring and the last occurring single quote in the request. The bit sequence shou"
+       "ld also be returned with whitespaces in between the byte representations. Example: Question: Can you return th"
+       "e UTF-8 bit sequence of the string ’Banana’? Answer: 01000010 01100001 01101110 01100001 01101110 01100001",
+        "Can you return the UTF-8 bit sequence of the string '{}'?","\" \".join(f\"b:08b\" for b in token.encode(\"ut"
+        "f-8\")) in result"],
+    [3,"Your task is to analyze a given String. A String is defined as any character sequence delimited by the first o"
+       "ccurring and the last occurring single quote in the request. A ’normal’ character is defined as an English alp"
+       "habetic character, within the ranges a to z (lowercase) or A to Z (uppercase). All characters outside these ran"
+       "ges, including digits, symbols, punctuation or whitespaces are considered 'notnormal'. Example: The String ’3-"
+       "2-1-Apple’ has 5 normal and 6 not normal characters. If prompted, return the tuple (#normal_characters, #not_no"
+       "rmal_characters) and do not add anything else to your answer. Example: ’3-2-1-Apple’ returns the Tuple (5,6)",
+       "Can you please return the number of normal characters and the number of not normal characters of the String '{}'?"
+     ]
+]
 
 ####  RESPONSEGENERATOR INTERFACE --------------------------------------------------------------------------------------
 class ResponseGenerator(ABC):
@@ -131,12 +152,12 @@ class PushNotification:
 #### GLITCH FINDER METHOD TO IMPLEMENT MAIN FUNCTIONALITY --------------------------------------------------------------
 class GlitchFinder:
     @staticmethod
-    def GlitchTest(generator: ResponseGenerator,
-                   path_to_token_csv_or_json: str,
+    def GlitchTest(path_to_token_csv_or_json: str,
                    path_to_output_csv: str,
                    model: str,
-                   path_to_prompts_csv: str,
-                   path_to_intermediate_res_folder: str,
+                   generator: ResponseGenerator = None,
+                   path_to_intermediate_res_folder: str = None,
+                   path_to_prompts_csv: str = None,
                    saving_interval=300,
                    topN=None,
                    sendSMS: bool = False) -> None:
@@ -145,7 +166,8 @@ class GlitchFinder:
         listed in this python file.
 
         :param topN: for testing and debugging of data: if set. the token will be sliced at the set row number
-        :param path_to_intermediate_res_folder: folder path to save the intermediate results
+        :param path_to_intermediate_res_folder: folder path to save the intermediate results in case intermediate
+        results are wished.
         :param path_to_prompts_csv: path to SEMICOLON SEPARATED Prompt CSV of the form
         [PROMPT_ID, SYSTEM_INSTRUCTION, PROMPT_TEXT, PREDICATE]
         :param generator: ResponseGenerator implementation to execute model requests
@@ -158,6 +180,22 @@ class GlitchFinder:
         :param sendSMS if an SMS should be sent to update on status.
         :return results only in form of a saved csv file
         """
+        # Choosing the standard model provider
+        if generator is None:
+            print("Choosing Ollama as model serving engine!")
+            generator = OllamaResponseGenerator()
+            model_is_installed = False
+            try: # check whether the model is installed
+                result = subprocess.run(["ollama", "list", "--json"], capture_output=True, text=True, check=True)
+                models = json.loads(result.stdout)
+                installed_models = [model["name"] for model in models.get("models", [])]
+                model_is_installed = model_name in installed_models
+            except Exception as e:
+                print(f"Error: {e}")
+
+            if not model_is_installed:
+                print(f"Model {model} not installed! Try pulling it by executing the command 'ollama pull {model}'.")
+                return None # termination
 
         # for csv saving
         def save_token_map_to_csv(data: pd.DataFrame, day, month, year, hour, minute, prompt_nr, folder, model):
@@ -202,8 +240,11 @@ class GlitchFinder:
         print("reading in prompts...")
 
         # 2 Read in the prompts, save as nested lists via pandas
-        df = pd.read_csv(path_to_prompts_csv, delimiter=";")
-        prompts = df.values.tolist()
+        if path_to_prompts_csv is not None:
+            df = pd.read_csv(path_to_prompts_csv, delimiter=";")
+            prompts = df.values.tolist()
+        else:
+            prompts = default_prompts
 
         # push notification with initialization information
         sendSMS and PushNotification.send_push(
@@ -269,7 +310,8 @@ class GlitchFinder:
                     result_tokens.append(result_entry)  # assembled row into result token list
 
                 # intermediate result saving based on token-id and set interval
-                if token_index % saving_interval == 0 or token_index == len(remaining_tokens) - 1:
+                if ((token_index % saving_interval == 0 or token_index == len(remaining_tokens) - 1)
+                        and path_to_intermediate_res_folder is not None):
                     save_token_map_to_csv(pd.DataFrame(result_tokens), day_now, month_now, year_now, hour_now, min_now,
                                           prompt_index, path_to_intermediate_res_folder, model)
 
@@ -283,8 +325,9 @@ class GlitchFinder:
             # 7 reallocate remaining tokens for next iteration
             remaining_tokens = result_tokens
 
-            # saving the final results of prompt test
-            save_token_map_to_csv(pd.DataFrame(result_tokens), day_now, month_now, year_now, hour_now, min_now,
+            # saving the final results of prompt test if requested
+            if path_to_intermediate_res_folder is not None:
+                save_token_map_to_csv(pd.DataFrame(result_tokens), day_now, month_now, year_now, hour_now, min_now,
                                   prompt_index, path_to_intermediate_res_folder,
                                   f"{model}_finalresultIn{prompt_index}.csv")
 
@@ -317,7 +360,7 @@ if __name__ == "__main__":
     # Import model name
     model_name = input("Enter model name as listed in ollama: ")
 
-    # Import Tokenizer
+    # Import file saving windows
     import tkinter as tk
     from tkinter import filedialog
 

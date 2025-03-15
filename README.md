@@ -42,8 +42,11 @@ With the .CSV file set up, the prompts can be imported by selecting the file dur
 a standard tokenizer.json file of a model can be used. In case a tokenizer file is not available, an adequate .CSV representation of the token vocabulary is sufficient. For that, the file needs to have the following structure: `token-id`;`token`. This file can then either be inserted in the code directly, or chosen by executing the `__main__` method.
 
 ## Using a different model provider
-If using an alternative API or local model framework such as DeepSeek, OpenAI, Transformers library, this provider can be inserted by implementing the GenerateResult interface.
-
+If using an alternative API or local model framework such as DeepSeek, OpenAI, Transformers library, this provider can be inserted by implementing the GenerateResult interface and inserting it in the `generator` field of the `GlitchTest` function.
+```python
+def generateResponse(self, model: str, prompt: str, systemInstruction: str) -> str:
+    pass
+```
 Examples of Implementations ready to use are listed in the Generators package. (DeepSeek, OpenAI)
 
 ## Analysing Results

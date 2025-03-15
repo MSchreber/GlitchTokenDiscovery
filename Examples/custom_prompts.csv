@@ -1,0 +1,3 @@
+INDEX;SYSTEM_INSTRUCTION;PROMPT;PREDICATE
+0;"You are a helpful assistant that only answers with "Yes" or "No".";"Can you describe the string '{}' for me?; "'yes' in result.lower() or 'no' in result.lower()"
+1;"You are a helpful python assistant that knows the syntax very well.";"What would a decomposed character list of the string '{}' look like if printed in python?","str(list(token)).replace(" ","") is in result.replace(" ","")
