@@ -53,4 +53,5 @@ Examples of Implementations ready to use are listed in the Generators package. (
 The result will contain a table (.CSV, ";" separated) in which the token and the according token id to each discovered glitch token is listed. Additionally the results of all four tests for this particular token is displayed in the columns on the right. The results could then be evaluated to get a better understanding of the origin and potential patterns the glitch tokens are exhibiting.
 
 ## Examples and Tutorials
-Examples and Tutorials will follow in the next days.
+Four examples are provided in the `Examples` folder.
+These examples demonstrate different modular aspects of the algorithm. Custom test cases, intermediate result saving and different model providers are presented in these example files.
