@@ -15,7 +15,7 @@ from GlitchTokenDiscovery import GlitchFinder
 GlitchFinder.GlitchTest(
     generator = GPT.GPTResponseGenerator(), # OpenAI API as model provider
     path_to_token_csv_or_json= "tokenizer_deepseek-v3.json", # Tokenizer
-    path_to_output_csv="example1_results.csv", # Output
+    path_to_output_csv="example4_results.csv", # Output
     model="GPT-4o", # Model
     path_to_prompts_csv = "custom_prompts.csv" # The custom prompts are inserted in the additional .csv file.
 )

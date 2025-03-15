@@ -13,7 +13,7 @@ from GlitchTokenDiscovery import GlitchFinder #Import the GlitchFinder class
 
 GlitchFinder.GlitchTest(
     path_to_token_csv_or_json = "tokenizer_llama2-7b.json", # Tokenizer
-    path_to_output_csv = "example1_results.csv", # Output
+    path_to_output_csv = "example2_results.csv", # Output
     model = "llama2:7b", # Model
     path_to_intermediate_res_folder = "Intermediate_Results", # Intermediate Folder name
     saving_interval = 500 # Save the results every 500 tests
